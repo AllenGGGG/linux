@@ -620,3 +620,684 @@ tar 参数 压缩包名 -C 解压目录		# 注意是大写C
 - `j`：使用`bzip2`方式
 - `v`：解压缩过程中显示压缩信息
 - `f`：指定压缩包名字
+
+## zip/uzip
+
+- tar会默认进行递归压缩，zip需要指定-r参数
+- zip压缩后会自动产生.zip后缀，tar需要指定后缀.tar.gz等
+
+### 1. zip
+
+- ```bash
+  zip -r 压缩包名 要压缩的文件
+  ```
+
+  `-r`：递归压缩
+
+### 2. uzip
+
+- ```bash
+  uzip 压缩包名				   # 解压到当前目录
+  unzip 压缩包名 -d 解压目录		# 指定目录
+  ```
+
+## rar/unrar
+
+#### 1. rar
+
+- ```bash
+  rar a 压缩包名 要压缩的文件 -r
+  ```
+
+  - archive：归档
+  - 如果要压缩的文件是目录，则需要加`-r`
+
+#### 2. rar/unrar
+
+- ```bash
+  rar/unrar x 压缩包名字 			# 当前目录
+  rar/unrar x 压缩包名字 目标目录	 # 指定目录 
+  ```
+
+## xz
+
+#### 1. 打包 + 压缩
+
+- ```bash
+  tar cvf xx.tar 要压缩的文件		# 打包文件
+  xz -z xx.tar 					# 生成.tar.xz文件
+  ```
+
+#### 2. 解压缩 + 解包
+
+- ```bash
+  xz -d xx.tar.xz
+  tar xvf xx.tar
+  ```
+
+
+# 搜索
+
+## find
+
+基于文件的属性进行搜索，但是不能基于内容（grep）
+
+### 1. 基于文件名和类型
+
+#### a.基于文件名
+
+- ```bash
+  find 搜索的路径 -name 要搜索的文件名
+  ```
+
+​	路径默认是递归搜索的
+
+- ```bash
+  find ./ -name "*.cpp"
+  find ./ -name '*.cpp'
+  ```
+
+  使用通配符必须要搭配`''`或者`""`
+
+#### b. 基于文件类型
+
+7种文件类型：f-普通文件，d-目录，l-软链接，c-字符设备，b-块设备，p-管道，s-本地套接字类型
+
+- ```bash
+  find 搜索的路径 -type 文件类型
+  ```
+
+### 2. 基于文件大小
+
+- ``` bash
+  find 搜索的路径 -size [+/-]文件大小
+  # 文件大小需要加单位 k、M、G, +/-表示范围，不加默认为-1的区间
+  ```
+
+```bash
+find ./ -size +3M	# file > 3M
+find ./ -size 3M	# 3-1M < file <= 3M
+find ./ -size -3M	# 0M <= file <= 2M
+find ./ -size +1M -size -4M		# 1M < file <= 3M
+```
+
+- `.`目录的大小是4k
+- 核心是向上取整，所以都是左开又闭的。+就是大于数，-就是小于这个数
+
+### 3. 基于目录层级
+
+先指定层级参数，再指定其他参数。
+
+- ```bash
+  find ./ -maxdepth 3 -name 文件名	# 搜索层级最多三层
+  find ./ -mindepth 3 -name 文件名	# 搜索层级最少从三层开始搜索
+  ```
+
+### 4. 同时执行多个操作
+
+#### a. -exec
+
+- ```bash
+  find 路径 参数 参数值 -exec shell命令2 {} \;
+  find 路径 参数 参数值 -exec shell命令2 {} ';'
+  find 路径 参数 参数值 -exec shell命令2 {} ";"
+  ```
+
+  `-exec`是find的参数，添加其他需要被执行的shell命令，处理的是find的结果。
+
+```bash
+allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ find ./ -maxdepth 1 -size +4k -exec ls -lFah {} \;
+-rw-rw-r-- 1 allen allen 27K Jan 19 21:00 ./linux.md
+```
+
+- ```bash
+  find ./ -name "*.md" -exec shell命令2 {} +
+  ```
+
+  - `{}`：表找到的文件名
+
+  - `+`：表示一次性把所有文件名传给命令。不能对单个文件进行精细操作。类似于xargs
+
+  - `;`：表示对找到的文件逐条处理，不管成功/失败
+
+  - `\;`：如果没有`\`，shell会优先处理`;`，其真实身份是命令终止符。导致`-exec`缺少参数，所以要用转义字符`\`告诉系统，这个`;`是find的参数，不要处理。
+
+    同理，也可以使用`';'`或者`";"`
+
+#### b. -ok
+
+- ```bash
+  allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ find ./ -maxdepth 1 -size +4k -ok ls -lFah {} \;	# 重点是\；
+  < ls ... ./linux.md > ? y
+  -rw-rw-r-- 1 allen allen 27K Jan 19 21:01 ./linux.md
+  allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ find ./ -maxdepth 1 -size +4k -ok ls -lFah {} \;
+  < ls ... ./linux.md > ? n
+  ```
+
+  `exec`不会进行交互，`ok`参数会与用户进行交互，y(es)、n(o)、ctrl + c 退出
+
+#### c. xargs
+
+- ```bash
+  find 路径 参数 参数值 | xargs shell命令2
+  ```
+
+  - `|`代表管道，把find的数据流传给后面的参数
+
+## grep
+
+用于查找文件里符合条件的字符串
+
+### 1. 语法格式
+
+- ```bash
+  grep "搜索的内容" 搜索的路径/文件 参数
+  grep 参数 "搜索的内容" 搜索的路径/文件 
+  ```
+
+#### a. 参数
+
+- `-r`：搜索目录中的文件内容，进行递归操作
+- `-i`：忽略大小写
+- `-n`：标出搜索到的行号
+
+注：grep和find后面跟的参数都是反着的。
+
+#### b.正则表达式使用
+
+```bash
+allen@allen-Dell-G15-5530:~/My_Tasks/Cmake$ grep "INCLUDE <IOS.*>" ./ -rni
+./cmake/demo/src/main.cpp:2:#include <iostream>
+./cmake/multi/test2/sort.cpp:1:#include <iostream>
+./cmake/multi/test1/calc.cpp:2:#include <iostream>
+./cmake/v3/main.cpp:2:#include <iostream>
+./cmake/v4/main.cpp:2:#include <iostream>
+./cmake/v2/main.cpp:2:#include <iostream>
+./cmake/v5/src/main.cpp:2:#include <iostream>
+./cmake/multi_plus/test/sort.cpp:1:#include <iostream>
+allen@allen-Dell-G15-5530:~/My_Tasks/Cmake$ grep -rni "INCLUDE <IOS.*>" ./
+./cmake/demo/src/main.cpp:2:#include <iostream>
+./cmake/multi/test2/sort.cpp:1:#include <iostream>
+./cmake/multi/test1/calc.cpp:2:#include <iostream>
+./cmake/v3/main.cpp:2:#include <iostream>
+./cmake/v4/main.cpp:2:#include <iostream>
+./cmake/v2/main.cpp:2:#include <iostream>
+./cmake/v5/src/main.cpp:2:#include <iostream>
+./cmake/multi_plus/test/sort.cpp:1:#include <iostream>
+```
+
+- 如果是使用通配符，使用`*`即可 ——shell命令使用
+
+  如果是正则表达式Regex，则是`.*`——多为文本文件操作使用，精细操作
+
+  `?`与`*`类似，但是只占用一个字符位置
+
+  - ```bash
+    ls a?.cpp  		# a1.cpp a2.cpp
+    ls a??.cpp		# a12.cpp 
+    ls a???.cpp		# a123.cpp
+    ls a*.cpp		# a1.cpp a2.cpp a12.cpp a123.cpp
+    ```
+
+## locate
+
+根据文件名搜索本地的磁盘文件，即搜索本地的数据库文件，其中包含本地所有文件信息。Linux自动创建且每天自动更新一次，所以locate查不到最新变动过的文件，为避免，需要在使用`updatedb`指令更新数据库
+
+- ```bash
+  sudo updatedb
+  ```
+
+### 1. 参数
+
+#### a. 搜索所有目录下以某个关键字开头的文件
+
+- ```bash
+  locate 关键字	
+  locate test
+  ```
+
+#### b. 指定路径，必须是绝对路径
+
+- ```bash
+  locate /home/allen/test
+  ```
+
+#### c. 其他参数
+
+- ```bash
+  locate TEST -I		# 不区分大小写
+  ```
+
+- ```bash
+  locate test -n 5	# 列出前5条匹配的信息
+  ```
+
+- ```bash
+  locate -r "\.cpp$"	# -r基于正则表达式进行匹配
+  ```
+
+  `$`表示行尾/结尾锚点，`\.cpp`表示以.cpp结尾的字符串，就是对应`*.cpp`的写法
+
+```bash
+find ./ -regex ".*\.cpp$"	# 寻找所有以 .cpp 结尾的文件
+```
+
+## Vim使用
+
+## 命令模式下的操作
+
+- ```vim
+  gg=G	# 对代码排序
+  0		# 移动到行首
+  gg 		# 移动到文件头部
+  G		# 移动到最后一行的行首
+  ZZ		# 退出文件
+  nG		# 到第n行行首，行跳转
+  number	# 从光标当前位置向下移动number行
+  删除的核心是剪切
+  x		# 删除光标后面的字符
+  X		# 删除光标前面的字符
+  dw		# 删除单词
+  d0		# 删除光标前的字符串
+  d$/D	# 删除光标后面的字符串
+  dd		# 删除光标所在行
+  ndd		# 删除n行
+  
+  p		# 粘贴在光标所在行的后面
+  P		# 粘贴在光标行的前面
+  yy		# 复制光标所在行 
+  nyy		# 复制光标下面n行
+  
+  u		# 撤销
+  ctrl+r	# 反撤销
+  
+  r		# 替换光标后的单个字符
+  R		# 替换多个字符，替换后ESC退出
+  
+  /关键字	 # 搜索，n向下，N向上
+  ？关键字	# n向上，N向上
+  #光标指向关键字	# 把光标放在关键字上，按下#
+  
+  vim -o 文件1 文件2 ...		# 水平分屏
+  vim -O 文件1 文件2 ...		# 垂直分屏
+  ```
+
+## 可视模式
+
+- ```vim
+  v:进入字符可视模式，文本选择以字符为单位
+  V：行可视模式
+  ctrl+v：块可视模式，选择矩形文本
+  
+  d：删除（剪切）选中内容
+  D：删除全部内容
+  y：复制
+  p：粘贴光标后面
+  P：粘贴到光标前面
+  ```
+
+## 命令模式切换到编辑模式
+
+- ```vim
+  i		# 光标前输入
+  a		# 光标后
+  o		# 光标下新建一行
+  I		# 当前行的行首输入
+  A		# 当前行的行尾输入
+  O		# 光标上边创建新行输入
+  ```
+
+## 末行模式
+
+从命令模式输入`:`即可
+
+- ```vim
+  q!				# 不保存直接强制退出
+  wq = x			# 保存退出
+  
+  替换
+  s/被替换的关键字/新的关键字/		# 替换当前行的第一个关键字
+  s/被替换的关键字/新的关键字/g		# 替换当前行所有关键字
+  行号1,行号2s/被替换的关键字/新的关键字/g	# [行号1, 行号2]范围内替换
+  %s/被替换的关键字/新的关键字/g		# 替换文本中所有关键字
+  
+  分屏
+  sp				# 窗口垂直排列,水平分屏
+  sp 文件名		  # 分屏同时指定打开的文件名字
+  vsp				# 窗口水平排列，垂直分屏
+  vsp 文件名
+  ctrl + w + w    # 在打开的屏幕之间切换
+  :qall			# 同时退出多个屏幕
+  :wqall			# 保存并退出
+  
+  调整分屏分界线
+  :set mouse=a	# 开启vim支持鼠标，通过鼠标拖动
+  ctrl+w < 		# 减少宽度
+  ctrl+w >		# 增加宽度
+  ctrl+w =		# 宽度等分
+  
+  :行号			  # 直接跳转到指定的行号
+  :!shell命令	  # 在末行模式执行shell命令
+  ```
+
+- 从末行模式回到命令模式，按两次`Esc`
+
+  执行完指令默认回到命令模式
+
+## 配置文件
+
+- `~/.vimrc`用户级别，只对当前用户有效
+- `etc/vim/vimrc`系统级别的配置文件，对所有Linux用户都有效
+- 如果两个配置文件都设置了，用户级别的配置文件起作用
+
+## 插件
+
+  - 空格 + w - 保存文件                                                         
+  - 空格 + q - 退出                                                             
+  - 空格 + n - 打开/关闭文件树                                                  
+  - 空格 + p - 模糊搜索文件                                                     
+  - 空格 + g - 全局搜索内容                                                     
+  - gcc - 注释/取消注释当前行                                                   
+  - Ctrl + h/j/k/l - 分屏导航
+
+### 应用1：代码注释
+
+#### a. 添加注释
+
+- ctrl+v，选中行，输入I（insert）并输入//，再按esc就可以完成
+
+#### b. 删除注释
+
+- ctrl + v，选中内容，输入d删除选中的内容
+
+# gcc、g++
+
+c语言使用gcc，c++语言使用g++
+
+## 工作流程
+
+### 1. 预处理、编译、汇编、链接
+
+- 预处理（预编译）：gcc调用预处理器，展开头文件、宏替换、去掉注释行，最终得到的还是源文件，文本文件.i
+
+  gcc参数：-E
+
+  ```bash
+  gcc -E test.c -o test.i
+  ```
+
+- 编译：调用编译器对文件进行编译，最终得到一个汇编文件.s
+
+​	-S
+
+```bash
+gcc -S test.i -o test.s
+```
+
+- 汇编：汇编器，得到二进制文件.o
+
+  -c
+
+  ```bash
+  gcc -c test.s -o test.o
+  ```
+
+- 链接：调用链接器对程序需要调用的库进行链接，得到一个可执行的二进制文件
+
+  ```bash
+  gcc test.o -o test
+  ./test
+  ```
+
+一步操作完成
+
+- ```bash
+  gcc test.c -o aa
+  gcc test.c			# 默认生成为a.out可执行程序
+  ```
+
+  虽然直接进行了第四步操作，但是前三步自动被完成了
+
+### 相关参数
+
+- ```bash
+  -I directory		# 指定include包含文件的搜索目录，一般都是不在同一个文件夹的情况
+  -D宏名			   # 程序编译的时候指定一个宏，程序可以使用
+  -l 					# 指定使用的库的名字，有无空格都可以
+  -L					# 指定编译时候，搜索的库的路径（相对/绝对路径都可以）
+  ```
+  
+  ```bash
+  gcc main.c -o calc -L ./ -lcalc			# 库的名字去掉lib和.a
+  ```
+  
+  
+
+### 区别
+
+- 无论是gcc还是g++都可以编译C程序，规则和参数都是相同的
+- g++可以直接编译C++程序，gcc编译C++程序需要链接`-lstdc++`
+- 不管gcc还是g++都可以定义`__cplusplus`宏
+
+# man
+
+```bash
+man man			# 查询指令
+```
+
+查询shell里面的某个命令
+
+- ```bash
+  man 1 cp
+  ```
+
+  1代表第一章节，cp相关的内容
+
+```
+section 1		Linux中提供的所有shell命令					用户命令`ls、pwd、cat`
+section 2		系统函数（由内核提供）						  系统调用`read、write、fork`
+section 3		库调函数（程序库中的函数）					 库函数`printf、mallac`
+section 4		特殊文件（通常在/dev目录中可以找到）		   特殊文件`console、null`
+```
+
+- ```bash
+  man 2 read
+  ```
+
+- ```bash
+  man 3 printf
+  ```
+
+
+# 库
+
+## 静态库
+
+### 1. 制作静态库文件
+
+#### a. 源文件汇编
+
+- ```bash
+  gcc 源文件（*.c） -c			# 得到.o文件
+  ```
+
+#### b. 将得到的.o文件打包，得到静态库
+
+- ```bash
+  ar rcs 静态库的名字（libxxx.a）	原材料（*.o）	# 后缀是固定的
+  ```
+
+### 2. 制作动态库文件
+
+#### a. 制作
+
+- ```bash
+  gcc -c -fpic 源文件（*.c）		# 得到.o文件
+  ```
+
+- ```bash
+  gcc -shared *.o -o lib名字.so		# 得到动态库文件
+  ```
+
+如果文件所有人、用户组、其他人对某个文件（比如动态库）都有执行的权限，那么在文件的后面就会有一个`*`，例如`libcalc.so*`
+
+- 调用法是都是一样的，无论是静态还是动态
+
+  ```bash
+  gcc main.c -L . -lcalc -o app
+  ```
+
+  如果是相对路径，把最后的app文件移动位置，就加载不到动态库。如果是静态库，不会出现
+
+#### b. 动态链接器`ld`—linker
+
+查找顺序：
+
+- 可执行文件内部的`DT_RPATH`段
+
+- 系统的环境变量`LD_LIBRARY_PATH`
+
+- 系统动态库的缓存文件`/etc/ld.so.cache`
+
+  这个缓存文件不能直接修改，通过修改其对应的`ld.so.conf`文本文件才能把相应的内容同步过去
+
+- 存储动态库/静态库的系统目录`/lib/`，`/user/lib`等
+
+如果找不到库的位置，第一个没办法修改，只能通过修改后面三个查找
+
+**ldd**： **List Dynamic Dependencies**（列出动态依赖关系）
+
+- ```bash
+  ldd 可执行文件名字
+  ```
+
+  如果能加载到，后面每个动态库都会有相应的地址，如果没有则显示not found
+
+#### c. 解决方案
+
+##### 方案一：拼接
+
+字符串拼接使用   **`:`**
+
+- ```bash
+  LD_LIBRARY_PATH=/home/allen/tmp/calc/test:$LD_LIBRARY_PATH		# 使用字符串拼接 
+  ```
+
+  - 只对当前终端有效，相当于一个测试。
+
+  - 如果永久生效可以放到配置文件里面`.bashrc`或`/etc/profile`（系统级别）
+
+    ```bash
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:动态库的绝对路径
+    ```
+
+    使用`source`或者`.`使其生效
+
+##### 方案二：更新/etc/ld.so.cache文件
+
+- ```bash
+  allen@allen-Dell-G15-5530:~$ sudo vim /etc.ld.so.conf
+  /etc/ld.so.conf：
+  		include /etc/ld.so.conf.d/*.conf                               
+  ```
+
+  在文件的下面添加动态库的绝对路径
+
+- ```bash
+  sudo ldconfig
+  sudo ldconfig -v 			# 可以看见更新的信息，较多
+  ```
+
+  添加后必须执行一次，这样`/etc/ld.so.conf`中的数据就会更新到`/etc/ld.so.cache`
+
+##### 方案三： 拷贝动态库文件到`lib`或`/user/lib`或者放入软链接
+
+- ```bash
+  sudo cp /xxx/xxx/libxxx.so /user/lib
+  sudo ln -s /xxx/xxx/libxxx.so /user/lib/libxxx.so	
+  ```
+
+  如果用软链接的方法，后面更新动态库之后不用重新创建，拷贝则需要反复操作
+
+# makefile
+
+## 规则
+
+- 组成部分：目标（target）、依赖（depend）和命令（command）
+
+### 1.格式
+
+```makefile
+target1,target2,...: depend1,depend2,...
+		command								# 每行都要加TAB缩进
+		command
+		.....
+```
+
+- 单目标
+
+  ```makefile
+  app:a.c b.c c.c
+  		gcc a.c b.c c.c -o app 
+  ```
+
+- 多目标
+
+  ```makefile
+  app,app1:a.c b.c c.c d.c
+  		gcc a.c b.c -o app
+  		gcc c.c d.c -o app1
+  ```
+
+- 规则间的嵌套
+
+  ```makefile
+  app:a.o b.o c.o						# 规则执行完毕时，目标还没有被生成出来（伪目标）
+  		gcc a.o b.o c.o -o app
+  a.o:a.c								# 也可能会出现不存在依赖的情况，直接空着就行
+  		gcc -c a.c
+  b.o:b.c
+  		gcc -c b.c
+  c.o:c.c
+  		gcc -c c.c
+  ```
+
+### 2. 工作原理
+
+- ```bash
+  make	# make 只会执行makefile里面的第一条规则
+  ```
+
+  当发现依赖不存在的时候，make就会查找其他的规则，看哪一条规则用来生成需要的这个依赖的
+
+- ```bash
+  make 规则里面的目标名	# 只执行某一个规则
+  ```
+
+- make是通过比较target和depend的时间戳来判定是否需要更新，目标时间戳一定是大于依赖的时间戳
+
+### 3. 自动推导
+
+- 如果规则不全，自动进行推导并不完全依赖makefile
+
+  ```makefile
+  app:a.o b.o c.o						
+  		gcc a.o b.o c.o -o app
+  ```
+
+  make的时候发现缺失依赖，会自动去`gcc -c a.c`生成`a.o`这个依赖
+
+### 4. 文件编写
+
+- 两种格式：makefile或Makefile
+
+
+
+
+
+
+
+
+
+
+
