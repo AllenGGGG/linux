@@ -1291,13 +1291,662 @@ target1,target2,...: depend1,depend2,...
 
 - 两种格式：makefile或Makefile
 
+##### a. 变量
+
+- 自定义变量：`变量名=变量值`
+
+  `$(变量名)`表示取值操作
+
+- 预定义变量：（内键变量）
+
+- 自动变量：用来代表这些规则中的目标文件和依赖文件，并且只能在规则的命令中使用
+
+  ```makefile
+  $*		# 表示目标文件的名称，不包含目标文件的扩展名
+  $+		# 表示所有依赖文件，这些依赖文件之间以空格分开，按照出现的先后顺序，其中可能包含重复的文件
+  $< 		# 表示依赖中第一个依赖文件的名称
+  $?		# 依赖项中，所有比目标文件时间戳晚的依赖文件
+  $@		# 表示目标文件的名称，包含文件扩展名
+  $^		# 依赖项中，所有不重复的依赖文件
+  ```
+
+```makefile
+calc:add.o div.o mult.o dev.o
+		gcc $^ -o $@
+```
+
+### 5 模式匹配
+
+通过一个公式代表若干满足条件的规则，`%`表示一个通配符，匹配的是文件名
+
+```makefile
+app:a.o b.o c.o						
+		gcc a.o b.o c.o -o app
+a.o:a.c								
+		gcc -c a.c
+b.o:b.c
+		gcc -c b.c
+c.o:c.c
+		gcc -c c.c
+```
+
+比较冗余，可以改写成
+
+```makefile
+app:a.o b.o c.o						
+		gcc a.o b.o c.o -o app
+%.o:%.c
+		gcc $< -c
+```
+
+### 6 函数
+
+#### a. 函数格式
+
+`$(函数名 参数1，参数2，参数3， ...)`
+
+#### b. `wildcard`
+
+获取指定目录下指定类型的文件名
+
+- ```makefile
+  $(wildcard PATTERN)					# 指定某个路径，搜索该路径下的指定类型文件
+  ```
+
+  eg：
+
+  ```makefile
+  src = $(wildcardd /home/allen/a/*.c /home/allen/b/*.c)
+  ```
 
 
+#### c. `patsubst`
 
+按照制定的模式替换制定的文件名和后缀
 
+- ```bash
+  $(patsubst <pattern>,<replacement>,<test>)
+  ```
 
+  - pattern是一个模式字符串，需要指出要被替换的文件名的后缀是什么
 
+    - 文件名和路径不需要关心，可以使用`%`
+    - 重点在于后缀，要指出通配符后面被替换的后缀
 
+  - replacement模式字符串，制定参数pattern中的后缀最终要被替换成什么
 
+    还是%用法
 
+  - test，：需要被替换的原始数据
+
+  ```makefile
+  src = a.cpp b.cpp c.cpp e.cpp
+  obj = (patsubst %.cpp, %.o, $(src))		# 最终得到a.o b.o c.o
+  ```
+
+#### d. 伪目标用法
+
+- ```makefile
+  make 规则里面的目标名	# 只执行某一个规则
+  clean:
+  	rm $(obj) $(target)
+  ```
+
+  - 也就是常用的make clean，伪目标也是创建一个文件。如果有一个同名的clean文件，再使用make clean的时候对应的规则就没办法执行。
+
+  - 原因：缺少依赖文件，代表clean永远是最新的。每次clean的时候不会执行，需要声明其是伪目标
+
+    ```makefile
+    .PHONY:clean
+    clean:
+    	rm $(obj) $(target)
+    ```
+
+    即使当前目标有clean这个文件，都不会影响makefile执行这条规则，`.PHONY`保证忽略时间戳，直接执行下面的命令
+
+#### e. 多命令
+
+- 默认情况：当执行命令时，如果前面一条执行失败，会默认终止
+- `-`：在命令前加`-`，代表强制执行，即使这条命令失败了，仍然会继续向下执行。
+
+# `gdb`
+
+是一套字符界面的程序集，可以使用命令gdb加载要调试的程序
+
+- 必须要生成可调试的可执行程序，在g++的时候加入`-g`参数
+
+## 使用方法
+
+### 1. 启动与退出
+
+#### a. 启动`gdb`
+
+- ```bash
+  g++ test.cpp -g -o app
+  gdb 可调试的可执行程序
+  ```
+
+#### b. 查看程序
+
+- 在`gdb`模式下按`l/list`可以查看程序
+
+#### c. 退出`gdb`模式
+
+- 在对话框输入quit/q可以退出
+
+#### d. 空白输入
+
+- 如果什么也没有输入直接enter,默认执行上一次执行的命令
+
+**`argc`与`argv`**
+
+```bash
+'''input.cpp:
+#include <iostream>
+
+using namespace std;
+
+int main (int argc, char* argv[]) {
+    cout << "参数个数： " << argc << endl;
+    for (int i = 0; i < argc; ++i) {
+        cout << "参数" << i << ": " << argv[i] << " " << endl;
+    }
+    return 0;
+}
+'''
+
+allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ g++ -g input.cpp -o input
+
+allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ ./input 1 2 3 4 5
+参数个数： 6
+参数0: ./input 
+参数1: 1 
+参数2: 2 
+参数3: 3 
+参数4: 4 
+参数5: 5 
+```
+
+- 第一个参数子自身，参数个数也是比输入的个数多一个
+
+- argv是一个存储8位字节地址的数组，但是当使用cout时，会自动读取数组里面的内容，而其他获取的是地址数据。
+
+  本质：
+
+  ```cpp
+  // cout定义多个版本的<<
+  // 1.专门服务于字符指针
+  // 伪代码：专门处理 char*
+  ostream& operator<<(ostream& out, const char* s) {
+      // 逻辑：顺着 s 指向的地址，一个一个字符打印，直到遇到 '\0'
+  }
+  // 2. 通用指针处理器
+  // 伪代码：处理所有非字符类型的指针
+  ostream& operator<<(ostream& out, const void* p) {
+      // 逻辑：直接读取 p 里面存的那 8 字节数值，并以十六进制格式输出
+  }
+  ```
+
+  如果想打印出指针
+
+  ```cpp
+  cout << (void*)argv[i];
+  cout << &argv[i];
+  ```
+
+### 2. 设置命令行参数
+
+```bash
+allen@allen-Dell-G15-5530:~/My_Tasks/Linux$ gdb input
+GNU gdb (Ubuntu 12.1-0ubuntu1~22.04.2) 12.1
+Copyright (C) 2022 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from input...
+(gdb) set args 1 2 3 4 5 
+(gdb) show args
+Argument list to give program being debugged when it is started is "1 2 3 4 5 ".
+```
+
+#### a. 设置参数
+
+- ```bash
+  # gdb模式下
+  set args 参数1 参数2 参数3 ...
+  ```
+
+  如果没有报任何错误，则设置成功
+
+#### b. 查看参数
+
+- ```bash
+  show args
+  ```
+
+### 3. 启动程序
+
+#### a. start
+
+- 只执行main函数的第一行，就停止了
+
+```bash
+(gdb) start
+Temporary breakpoint 1 at 0x11dc: file input.cpp, line 6.
+Starting program: /home/allen/My_Tasks/Linux/input 1 2 3 4 5 
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+
+Temporary breakpoint 1, main (argc=6, argv=0x7fffffffc2f8) at input.cpp:6
+6	    cout << "参数个数： " << argc << endl;
+```
+
+#### b. start + c
+
+- 在start的基础上，输入`c`会执行完毕
+
+```bash
+(gdb) c
+Continuing.
+参数个数： 6
+参数0: /home/allen/My_Tasks/Linux/input 
+参数1: 1 
+参数2: 2 
+参数3: 3 
+参数4: 4 
+参数5: 5 
+[Inferior 1 (process 17922) exited normally]
+```
+
+#### c. run/r
+
+如果没有断点，则直接执行全部程序
+
+```bash
+(gdb) run
+Starting program: /home/allen/My_Tasks/Linux/input 1 2 3 4 5
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+参数个数： 6
+参数0: /home/allen/My_Tasks/Linux/input 
+参数1: 1 
+参数2: 2 
+参数3: 3 
+参数4: 4 
+参数5: 5 
+[Inferior 1 (process 18034) exited normally]
+```
+
+### 4. 查看文件中代码
+
+#### a. 本文件
+
+- `(gdb) l/list`
+
+- `list 行号`
+
+  查看行号对应的上下文代码，默认10行
+
+- `list 函数名`
+
+  显示这个函数的上下文内容，默认10行
+
+#### b. 切换文件
+
+- `l 文件名：行号`
+
+  切换到指定文件，查看行号上下文代码
+
+- `l 文件名：函数名`
+
+### 5. 显示行数
+
+#### a. 设置行数
+
+- ```gdb
+  set listsize 行数
+  ```
+
+#### b. 显示行数
+
+- ```gdb
+  (gdb) show listsize / show list
+  Number of source lines gdb will list by default is 10.
+  ```
+
+### 6. 设置断点 
+
+break == b
+
+#### a. 当前文件
+
+- ```
+  b 行号
+  b 函数名		# 停止在函数的第一行
+  ```
+
+#### b. 非当前文件
+
+- ```gdb
+  b 文件名：行号
+  b 文件名：函数名
+  ```
+
+#### c. 条件断点
+
+- ```gdb
+  b 行号 if 变量名==某个值
+  ```
+
+#### d. 查看断点
+
+- ```gdb
+  i/info b
+  ```
+
+  ```gdb
+  (gdb) info b
+  Num     Type           Disp Enb Address            What
+  1       breakpoint     keep y   0x0000555555555223 in main(int, char**) 
+                                                     at input.cpp:8
+  	stop only if argv[i]==4
+  2       breakpoint     keep y   0x00005555555551dc in main(int, char**) 
+                                                     at input.cpp:6
+  	breakpoint already hit 1 time
+  3       breakpoint     keep y   0x0000555555555223 in main(int, char**) 
+                                                     at input.cpp:8
+  	stop only if argv[i]==4
+  4       breakpoint     keep y   0x0000555555555223 in main(int, char**) 
+                                                     at input.cpp:8
+  	stop only if argv[i]==5
+  #断点编号	#类型				#是否生效	#断点对应的地址	# 断点在文件的哪一行
+  ```
+
+#### e. 删除断点
+
+delete ==del ==d
+
+- ```gdb
+  d/del 断点1的编号 断点2编号 ...
+  ```
+
+  删除一个或多个
+
+- ```gdb
+  del/d num1-numN
+  ```
+
+  删除一个范围，断点编号是一个连续区间
+
+#### f. 设置断点无效
+
+dis==disable
+
+用法与删除相同
+
+- ```gdb
+  (gdb) b 2
+  Breakpoint 5 at 0x5555555551dc: file input.cpp, line 6.
+  (gdb) i b
+  Num     Type           Disp Enb Address            What
+  5       breakpoint     keep y   0x00005555555551dc in main(int, char**) 
+                                                     at input.cpp:6
+  (gdb) dis 2
+  No breakpoint number 2.
+  (gdb) dis 5
+  (gdb) i b
+  Num     Type           Disp Enb Address            What
+  5       breakpoint     keep n   0x00005555555551dc in main(int, char**) 
+                                                     at input.cpp:6
+  ```
+
+#### g. 设置断点生效
+
+enable==ena
+
+与dis相同用法
+
+## 调试命令
+
+### 1. 打印
+
+p  == print
+
+#### a. 打印变量值
+
+```gdb
+p 变量名
+p/x	i
+```
+
+格式：
+
+- ```gdb
+  /x			# 16进制
+  /d			# 有符号10进制
+  /u			# 无符号10进制
+  /o			# 8进制
+  /t			# 2进制
+  /f			# 浮点数打印变量或表达式的值
+  /c			# 字符形式打印变量或表达式的值
+  ```
+
+```gdb
+(gdb) p i==5
+No symbol "i" in current context.
+(gdb) run
+Starting program: /home/allen/My_Tasks/Linux/input 1 2 3 4 5 6 7
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+参数个数： 8
+参数0: /home/allen/My_Tasks/Linux/input 
+参数1: 1 
+参数2: 2 
+参数3: 3 
+参数4: 4 
+
+Breakpoint 2, main (argc=8, argv=0x7fffffffc2d8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+(gdb) p i
+$1 = 5
+(gdb) p argv[i]
+$2 = 0x7fffffffc807 "5"
+(gdb) 
+```
+
+- 如果是指针类型，则会打印对应的地址和地址指向的存储值
+- $2相当于别名，
+
+#### b. 打印变量类型ptype
+
+- ```gdb
+  ptype 变量名
+  ```
+
+实例：
+
+```gdb
+(gdb) p argv[i]
+$2 = 0x7fffffffc807 "5"
+(gdb) ptype
+type = char *
+(gdb) ptype i
+type = int
+```
+
+#### e. 自动跟踪display
+
+对变量进行自动跟踪，要先`断`后`看`
+
+- ```gdb
+  display 变量名
+  info/i display
+  del/undisplay 编号	 # 删除
+  disable display 编号
+  enable display 编号
+  ```
+
+实例：
+
+```bash
+(gdb) b 8
+Breakpoint 1 at 0x1223: file input.cpp, line 8.
+(gdb) display i
+No symbol "i" in current context.
+(gdb) run
+Starting program: /home/allen/My_Tasks/Linux/input 1 2 3 4 5 6
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+参数个数： 7
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+(gdb) display i
+1: i = 0
+(gdb) display argv[i]
+2: argv[i] = 0x7fffffffc7e0 "/home/allen/My_Tasks/Linux/input"
+(gdb) i display
+Auto-display expressions now in effect:
+Num Enb Expression
+1:   y  i
+2:   y  argv[i]
+(gdb) n
+参数0: /home/allen/My_Tasks/Linux/input 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 0
+2: argv[i] = 0x7fffffffc7e0 "/home/allen/My_Tasks/Linux/input"
+(gdb) 
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+1: i = 1
+2: argv[i] = 0x7fffffffc801 "1"
+(gdb) 
+参数1: 1 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 1
+2: argv[i] = 0x7fffffffc801 "1"
+(gdb) 
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+1: i = 2
+2: argv[i] = 0x7fffffffc803 "2"
+(gdb) 
+参数2: 2 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 2
+2: argv[i] = 0x7fffffffc803 "2"
+(gdb) undisplay 2
+(gdb) n
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+1: i = 4
+(gdb) 
+参数4: 4 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 4
+(gdb) 
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+1: i = 5
+(gdb) 
+参数5: 5 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 5
+(gdb) disable display 1
+(gdb) i display
+Auto-display expressions now in effect:
+Num Enb Expression
+1:   n  i
+(gdb) n
+
+Breakpoint 1, main (argc=7, argv=0x7fffffffc2f8) at input.cpp:8
+8	        cout << "参数" << i << ": " << argv[i] << " " << endl;
+(gdb) enable display 1
+(gdb) 
+(gdb) n
+参数6: 6 
+7	    for (int i = 0; i < argc; ++i) {
+1: i = 6
+(gdb) 
+10	    return 0;
+(gdb) 
+11	}
+
+```
+
+- 单步调试`n`
+
+#### 地址存储方式
+
+```bash
+(gdb) p argv[i]
+$7 = 0x7fffffffc807 "5"
+(gdb) p $7-1
+$8 = 0x7fffffffc806 ""
+(gdb) p $7-2
+$9 = 0x7fffffffc805 "4"
+(gdb) p $7+1
+$10 = 0x7fffffffc808 ""
+(gdb) p $7+2
+$11 = 0x7fffffffc809 "6"
+
+```
+
+- `argv[i]`类型是char*，`*argv[i]`存储的是字符`'5'`，占用1个字节，在内存地址中，字符存储的时候需要加结束标识符`\0`，同样占用一个字节，数字不需要，因为int和long long等长度是确定的，4/8个字节，所以对应的物理地址间隔1
+
+  ```
+  '4' \0 '5' \0 '6'
+  ```
+
+### 2. 单步调试
+
+#### a. step
+
+step == s
+
+- 执行一次代码就会跳转一行有效代码，如果这一行是一个函数调用，那么程序会进入到函数体内部
+- 注释会被跳过
+
+#### b. next
+
+next == n
+
+- 和step区别就是，不会进入到函数体内部
+
+#### c. finish
+
+- 如果通过`s`进入函数体内部，可以使用finish跳出函数，但是必须保证函数体内部不能有断点，如果有，需要先保证内部断点无效
+
+#### e. until
+
+- 可以直接跳出循环体，要求循环体内部不能有有效的断点，且必须要在循环体的开始/结束执行该命令。
+- 如果不知道在哪里跳出，输入一次until，然后一直enter，就会挨行执行直到结束后跳出
+
+### 3. 设置变量值
+
+#### a. 指令
+
+- ```gdb
+  set var 变量名=值
+  ```
+
+  遇到循环因子，先`断`再`设置`
+
+#### b. 用法：
+
+- 在循环体内部直接把循环因子设置成最大值，这样就可以下一轮的时候终止循环
 
